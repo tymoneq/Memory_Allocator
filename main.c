@@ -23,9 +23,15 @@ struct block_counter {
 
 typedef struct memory_block memory_block;
 typedef struct block_counter block_counter;
+#define true 1
+#define false 2
 
 char* heap_start = NULL;
+char* block_end = NULL;
 block_counter* my_stats = NULL;
+memory_block* first_block = NULL;
+memory_block* last_block = NULL;
+
 /**
  * The function `my_malloc` allocates a new page of memory using the `sbrk`
  * system call.
@@ -40,7 +46,7 @@ block_counter* my_stats = NULL;
  * pointer to the start of the allocated memory block. If the allocation fails,
  * it returns `NULL`.
  */
-void* my_malloc(size_t size) {
+void* allocate(size_t size) {
   void* page;
   page = sbrk(size);
 
@@ -60,16 +66,17 @@ void* my_malloc(size_t size) {
  */
 block_counter* set_block_counter() {
   assert(heap_start == NULL);
-  heap_start = my_malloc(0);
+  heap_start = allocate(0);
   assert(heap_start != NULL);
 
-  char* heap_end = my_malloc(PAGE_SIZE);
+  allocate(PAGE_SIZE);
 
   if (*(heap_start) != MAGICAL_BYTES) {
     *(heap_start) = MAGICAL_BYTES;
     block_counter* my_stats = (block_counter*)heap_start;
     my_stats->number_of_blocks = 0;
     my_stats->number_of_pages = 1;
+    block_end = heap_start + sizeof(block_counter);
     return my_stats;
   }
   return NULL;
@@ -79,14 +86,36 @@ char* get_heap_end() {
   return sbrk(0);
 }
 
-memory_block* create_new_memory_block(size_t size) {
-  uint64_t current_heap_size = get_heap_end() - heap_start;
+memory_block* create_memory_block(size_t size) {
+  memory_block* new_block = (memory_block*)(block_end);
+  new_block->size = size;
+  new_block->used = true;
+  new_block->prev_block = NULL;
+  new_block->next_block = NULL;
+  block_end += size;
+  return new_block;
+}
 
-  if (size > current_heap_size) {
+void create_new_memory_block(size_t size) {
+  uint64_t current_heap_size_free = get_heap_end() - block_end;
+
+  if (size > current_heap_size_free) {
     // need to allocate new page
-    char* new_page_end = my_malloc(PAGE_SIZE);
+    allocate(PAGE_SIZE);
     my_stats->number_of_pages += 1;
   }
+  memory_block* new_block = create_memory_block(size);
+  if (first_block == NULL)
+    first_block = new_block;
+
+  // connecting linked list
+  if (last_block != NULL) {
+    last_block->next_block = new_block;
+    new_block->prev_block = last_block;
+  }
+  last_block = new_block;
+
+  my_stats->number_of_blocks += 1;
 }
 
 int main() {
@@ -96,6 +125,18 @@ int main() {
 
   if (my_stats != NULL) {
     printf("NICE, %p\n", my_stats);
+
+    printf("Allocating memory block\n");
+    create_new_memory_block(PAGE_SIZE / 4);
+
+    printf("%p\n", first_block);
+    create_new_memory_block(PAGE_SIZE * 2);
+
+    printf("%p\n", first_block->next_block);
+
+    printf("Number of pages  %d and block %d\n", my_stats->number_of_pages,
+           my_stats->number_of_blocks);
+
     sbrk(-PAGE_SIZE);
   }
 
