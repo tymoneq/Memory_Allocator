@@ -6,10 +6,13 @@ LDFLAGS = -fsanitize=address,leak
 
 all: main
 
-main: main.o
+main: main.o allocator.o
 	${GCC} ${GCCFLAGS} $^ -o $@
 
 main.o: main.c
+	${GCC} ${GCCFLAGS} -c $< -o $@
+
+allocator.o: allocator.c allocator.h
 	${GCC} ${GCCFLAGS} -c $< -o $@
 
 clean:
