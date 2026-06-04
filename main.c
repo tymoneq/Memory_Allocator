@@ -17,6 +17,10 @@ int main() {
   test_s* test = my_malloc(10 * sizeof(test_s));
 
   printf("%p\n", test);
+  my_free(test);
+  test_s* test2 = my_malloc(10 * sizeof(test_s));
+
+  printf("%p\n", test2);
 
   int y = test[1].testttt;
   y = 5;
@@ -26,6 +30,7 @@ int main() {
     test[i].xd = i;
     printf("%d\n", test[i].xd);
   }
+  printf("%d\n", test2[5].xd);
 
   free_all_pages();
 

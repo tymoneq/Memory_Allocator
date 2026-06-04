@@ -45,14 +45,31 @@ static block_counter* set_block_counter() {
   return NULL;
 }
 
+static inline void set_block_free(memory_block* block) {
+  block->size &= (~1);
+}
+
+static inline void set_block_used(memory_block* block) {
+  block->size |= 1;
+}
+
+static inline int8_t is_used(memory_block* block) {
+  return ((block->size & 1) ? true : false);
+}
+
+static inline size_t get_size(memory_block* block) {
+  return (block->size & (~7));
+}
+
 // Internal Helper: Carve out a block metadata structure
 static memory_block* create_memory_block(size_t size) {
   memory_block* new_block = (memory_block*)(block_end);
   new_block->size = size;
-  new_block->used = true;
   new_block->prev_block = NULL;
   new_block->next_block = NULL;
   block_end += sizeof(memory_block) + size;
+  set_block_used(new_block);
+
   return new_block;
 }
 
@@ -98,7 +115,7 @@ static memory_block* create_new_memory_block(size_t size) {
 static memory_block* find_free_node(size_t size) {
   memory_block* current_node = first_block;
   while (current_node != NULL) {
-    if (current_node->size >= size && current_node->used == false) {
+    if (current_node->size >= size && !is_used(current_node)) {
       return current_node;
     }
     current_node = current_node->next_block;
@@ -110,12 +127,12 @@ static size_t align8(size_t size) {
   return ((size + 7) & ~7);
 }
 
-void set_block_free(memory_block* block) {
-  block->used = false;
-}
+void my_free(void* ptr) {
+  if (ptr == NULL)
+    return;
 
-void set_block_used(memory_block* block) {
-  block->used = true;
+  memory_block* block = (memory_block*)ptr - 1;
+  set_block_free(block);
 }
 
 void free_all_pages() {
