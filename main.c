@@ -7,20 +7,18 @@
 int main() {
   printf("Start\n");
 
-  void* test = my_malloc(50);
-  void* test1 = my_malloc(6000);
-  void* test2 = my_malloc(501);
-  void* test3 = my_malloc(6001);
+  int* test = my_malloc(10 * sizeof(int));
 
-  printf("Stats, %p\n", my_stats);
   printf("%p\n", test);
-  printf("%p\n", test1);
-  printf("%p\n", test2);
-  printf("%p\n", test3);
 
-  set_block_free(test);
-  void* test4 = my_malloc(50);
-  printf("%p\n", test4);
+  int y = test[1];
+  y = 5;
+  printf("%d\n", y);
+
+  for (size_t i = 0; i < 10; i++) {
+    test[i] = i;
+    printf("%d\n", test[i]);
+  }
 
   free_all_pages();
 
