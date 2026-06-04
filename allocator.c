@@ -1,5 +1,6 @@
 #include "allocator.h"
 #include <assert.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -11,7 +12,6 @@ char* heap_start = NULL;
 char* block_end = NULL;
 memory_block* first_block = NULL;
 memory_block* last_block = NULL;
-
 block_counter* my_stats = NULL;
 
 static void* allocate(size_t size) {
@@ -56,21 +56,19 @@ static memory_block* create_memory_block(size_t size) {
   return new_block;
 }
 
-uint64_t pages_to_allocate(uint64_t block_size, uint64_t heap_size) {
+static uint64_t pages_to_allocate(uint64_t block_size, uint64_t heap_size) {
   return ((block_size - heap_size) / PAGE_SIZE) + 1;
 }
 
-// Internal Helper: Chain a new block into the list
-static memory_block* create_new_memory_block(size_t size) {
-  uint64_t current_heap_size_free = get_heap_end() - block_end;
+static void allocate_new_pages(size_t size, uint64_t current_heap_size_free) {
+  uint64_t number_of_pages =
+      pages_to_allocate(size + sizeof(memory_block), current_heap_size_free);
+  allocate(PAGE_SIZE * number_of_pages);
+  my_stats->number_of_pages += number_of_pages;
+}
 
-  if (size + sizeof(memory_block) > current_heap_size_free) {
-    uint64_t number_of_pages =
-        pages_to_allocate(size + sizeof(memory_block), current_heap_size_free);
-    allocate(PAGE_SIZE * number_of_pages);
-    my_stats->number_of_pages += number_of_pages;
-  }
-  memory_block* new_block = create_memory_block(size);
+// Internal Helper: Chain a new block into the list
+static void insert_new_block(memory_block* new_block) {
   if (first_block == NULL)
     first_block = new_block;
 
@@ -81,6 +79,18 @@ static memory_block* create_new_memory_block(size_t size) {
   last_block = new_block;
 
   my_stats->number_of_blocks += 1;
+}
+
+// Internal Helper: Create new memory block
+static memory_block* create_new_memory_block(size_t size) {
+  uint64_t current_heap_size_free = get_heap_end() - block_end;
+
+  if (size + sizeof(memory_block) > current_heap_size_free) {
+    allocate_new_pages(size, current_heap_size_free);
+  }
+  memory_block* new_block = create_memory_block(size);
+
+  insert_new_block(new_block);
   return new_block;
 }
 
@@ -94,6 +104,10 @@ static memory_block* find_free_node(size_t size) {
     current_node = current_node->next_block;
   }
   return NULL;
+}
+
+static size_t align8(size_t size) {
+  return ((size + 7) & ~7);
 }
 
 void set_block_free(memory_block* block) {
@@ -122,6 +136,7 @@ void* my_malloc(size_t size) {
   if (my_stats == NULL)
     my_stats = set_block_counter();
 
+  size = align8(size);
   memory_block* block = find_free_node(size);
   if (block != NULL) {
     set_block_used(block);
