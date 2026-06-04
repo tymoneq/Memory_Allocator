@@ -1,5 +1,6 @@
 #include "allocator.h"
 #include <assert.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -55,13 +56,19 @@ static memory_block* create_memory_block(size_t size) {
   return new_block;
 }
 
+uint64_t pages_to_allocate(uint64_t block_size, uint64_t heap_size) {
+  return ((block_size - heap_size) / PAGE_SIZE) + 1;
+}
+
 // Internal Helper: Chain a new block into the list
 static memory_block* create_new_memory_block(size_t size) {
   uint64_t current_heap_size_free = get_heap_end() - block_end;
 
   if (size + sizeof(memory_block) > current_heap_size_free) {
-    allocate(PAGE_SIZE);
-    my_stats->number_of_pages += 1;
+    uint64_t number_of_pages =
+        pages_to_allocate(size + sizeof(memory_block), current_heap_size_free);
+    allocate(PAGE_SIZE * number_of_pages);
+    my_stats->number_of_pages += number_of_pages;
   }
   memory_block* new_block = create_memory_block(size);
   if (first_block == NULL)
