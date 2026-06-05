@@ -1,7 +1,4 @@
-#include <assert.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <unistd.h>
 #include "allocator.h"
 
 struct test_struct {
